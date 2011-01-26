@@ -79,6 +79,10 @@ var installGitRepo = function (name, item) {
   // checkout the checkout
   commands.push('git checkout "' + item.checkout + '"');
 
+  // Add any commands to execute by request.
+  if (item.commands) {
+    commands.push.apply(commands, item.commands);
+  }
 
   // `npm link ./` it.
   commands.push(npm + ' link ./');
