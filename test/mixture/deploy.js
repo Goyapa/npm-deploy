@@ -8,13 +8,12 @@ module.exports = {
   },
   "run tests": {
     "type": "command",
-    "command": function (done) {
-      console.log('Function test done.');
-      done();
-    }
-  },
-  "echo": {
-    "type": "command",
-    "command": "rm -rf .deploy"
+    "commands": [
+      function (done) {
+        console.log('Function test done.');
+        done();
+      },
+      "rm -rf .deploy"
+    ]
   }
 };

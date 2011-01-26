@@ -240,8 +240,8 @@ var loadDependencies = function () {
       break;
 
     case 'command':
-      if (item.command) {
-        commands.push(item.command);
+      if (item.commands) {
+        commands.push.apply(commands, item.commands);
       }
       break;
     }
