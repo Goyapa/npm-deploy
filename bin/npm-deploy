@@ -1,0 +1,249 @@
+#!/usr/bin/env node
+
+// The MIT License
+// 
+// Copyright (c) 2011 Tim Smart
+// 
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+// 
+// The above copyright notice and this permission notice shall be included in
+// all copies or substantial portions of the Software.
+// 
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+// THE SOFTWARE.
+
+var fs   = require('fs'),
+    path = require('path'),
+    exec = require('child_process').exec;
+
+var DEPLOY_DIR = '.deploy';
+
+/**
+ * Read JSON from a file and parse it.
+ *
+ * @param {String} file: The file path
+ * @param {Function} callback: The callback function.
+ */
+var readJson = function (file, callback) {
+  fs.readFile(file, function (error, data) {
+    if (error) return callback(error);
+
+    try {
+      callback(null, JSON.parse(data.toString()));
+    } catch (error) {
+      callback(error);
+    }
+  }) 
+};
+
+/**
+ * Setup, checkout and install a repo.
+ *
+ * @param {Object} item: The deploy item entry.
+ */
+var installGitRepo = function (name, item) {
+  var commands = [];
+
+  // Make sure the deploy directory is there.
+  commands.push('mkdir -p "' + DEPLOY_DIR + '"');
+
+  // chdir into the DEPLOY_DIR
+  commands.push(function (done) {
+    process.chdir(DEPLOY_DIR);
+    done();
+  });
+
+  // git clone the path
+  commands.push('git clone "' + item.path + '" "' + name + '"');
+
+  // chdir into repo
+  commands.push(function (done) {
+    process.chdir(name);
+    done();
+  });
+
+  // Are we up to date?
+  commands.push('git checkout master -f && git pull');
+
+  // checkout the checkout
+  commands.push('git checkout "' + item.checkout + '"');
+
+
+  // `npm link ./` it.
+  commands.push('npm link ./');
+
+  // Do it.
+  executeCommands(commands);
+};
+
+var commands_queue   = [],
+    commands_working = false;
+
+/**
+ * Queue up a batch of commands to execute.
+ */
+var executeCommands = function (commands) {
+  if (commands) {
+    commands_queue.push(commands);
+  }
+
+  if (commands_working || 0 >= commands_queue.length) return;
+  commands_working = true;
+
+  _executeCommands(commands_queue.shift());
+};
+
+/**
+ * Execute an array of commands in order.
+ *
+ * @param {Array} commands: The array of commands.
+ */
+var _executeCommands = function (commands) {
+  commands = commands.slice();
+
+  (function next () {
+    var command = commands.shift();
+
+    if (!command) {
+      // At the end. Clean-up.
+      if (root !== process.cwd()) process.chdir(root);
+      commands_working = false;
+      return executeCommands();
+    }
+
+    if (typeof command === 'function') {
+      return command(next);
+    }
+
+    console.log('Running `' + command + '`.');
+    exec(command, function (error, data) {
+      next()
+    });
+  })();
+};
+
+// Setup paths
+var root = cwd = process.cwd(),
+    deploy_json, package_json;
+
+// Is the deploy json file specified?
+if (deploy_json = process.argv[process.argv.indexOf(__filename) + 1]) {
+  root = path.dirname(deploy_json);
+  deploy_json = path.resolve(deploy_json);
+} else {
+  deploy_json = 'deploy.json';
+}
+
+// Make sure we have an absolute path.
+root = path.resolve(root);
+
+// Change directories if we need to.
+if (cwd !== root) {
+  process.chdir(root);
+  cwd = root;
+}
+
+// We need this for later.
+package_json = root + '/package.json';
+
+// Load the deploy json.
+readJson(deploy_json, function (error, json) {
+  if (error) {
+    deploy_json = {};
+  } else {
+    deploy_json = json;
+  }
+
+  // See if we have a package.json. We will try and
+  // load the dependencies from there as well.
+  readJson(package_json, function (error, json) {
+    if (error || typeof json.dependencies !== 'object') {
+      // No valid package.json; move on.
+      package_json = null;
+    } else {
+      // Add to deploy_json.
+      var keys = Object.keys(json.dependencies),
+          name, version;
+
+      for (var i = 0, il = keys.length; i < il; i++) {
+        name    = keys[i];
+        version = json.dependencies[name];
+
+        deploy_json[name] = {
+          type:    "npm",
+          version: version
+        };
+      }
+    }
+
+    loadDependencies();
+  });
+});
+
+/**
+ * We have the JSON we need. This function continues the process.
+ */
+var loadDependencies = function () {
+  if (!deploy_json) {
+    return console.log('Nothing to do.');
+  }
+
+  var commands     = [],
+      npm_packages = [],
+      keys         = Object.keys(deploy_json),
+      name, item, type;
+
+  // Anything to do?
+  if (0 >= keys.length) {
+    return console.log('Nothing to do.');
+  }
+
+  // Do installation of dependencies.
+  // Stack commands onto an array to process sequentially.
+  for (var i = 0, il = keys.length; i < il; i++) {
+    name = keys[i];
+    item = deploy_json[name];
+    type = item.type;
+
+    if (!type) continue;
+
+    switch (type) {
+    case 'npm':
+      if (!item.version) {
+        npm_packages.push(name);
+      } else {
+        npm_packages.push(name + '@"' + item.version + '"');
+      }
+      break;
+    case 'git':
+      if (item.path) {
+        if (!item.checkout) item.checkout = 'master';
+        installGitRepo(name, item);
+      }
+      break;
+    case 'command':
+      if (item.command) {
+        commands.push(item.command);
+      }
+      break;
+    }
+  }
+
+  if (0 < npm_packages.length) {
+    commands.push('npm install ' + npm_packages.join(' '));
+  }
+
+  if (0 < commands.length) {
+    executeCommands(commands);
+  }
+};
