@@ -139,12 +139,12 @@ var root = cwd = process.cwd(),
 // Is the deploy json file specified?
 if (deploy_json = process.argv[process.argv.indexOf(__filename) + 1]) {
   root = path.dirname(deploy_json);
-  deploy_json = path.resolve(deploy_json);
 } else {
   deploy_json = 'deploy.json';
 }
 
 // Make sure we have an absolute path.
+deploy_json = path.resolve(deploy_json);
 root = path.resolve(root);
 
 // Change directories if we need to.
@@ -179,9 +179,12 @@ readJson(deploy_json, function (error, json) {
         name    = keys[i];
         version = json.dependencies[name];
 
+        if (version) {
+          name = name + '@"' + version + '"';
+        }
+
         deploy_json[name] = {
-          type:    "npm",
-          version: version
+          type:    "npm"
         };
       }
     }
@@ -219,18 +222,16 @@ var loadDependencies = function () {
 
     switch (type) {
     case 'npm':
-      if (!item.version) {
-        npm_packages.push(name);
-      } else {
-        npm_packages.push(name + '@"' + item.version + '"');
-      }
+      npm_packages.push(name);
       break;
+
     case 'git':
       if (item.path) {
         if (!item.checkout) item.checkout = 'master';
         installGitRepo(name, item);
       }
       break;
+
     case 'command':
       if (item.command) {
         commands.push(item.command);
@@ -240,7 +241,7 @@ var loadDependencies = function () {
   }
 
   if (0 < npm_packages.length) {
-    commands.push('npm install ' + npm_packages.join(' '));
+    commands.unshift('npm install ' + npm_packages.join(' '));
   }
 
   if (0 < commands.length) {
