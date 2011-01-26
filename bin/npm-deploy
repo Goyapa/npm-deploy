@@ -26,7 +26,8 @@ var fs   = require('fs'),
     path = require('path'),
     exec = require('child_process').exec;
 
-var DEPLOY_DIR = '.deploy';
+var DEPLOY_DIR = '.deploy',
+    npm        = 'npm';
 
 /**
  * Read JSON from a file and parse it.
@@ -80,7 +81,7 @@ var installGitRepo = function (name, item) {
 
 
   // `npm link ./` it.
-  commands.push('npm link ./');
+  commands.push(npm + ' link ./');
 
   // Do it.
   executeCommands(commands);
@@ -189,7 +190,13 @@ readJson(deploy_json, function (error, json) {
       }
     }
 
-    loadDependencies();
+    // Find where `npm` is.
+    exec('which npm', function (error, data) {
+      if (!error && data) {
+        npm = data.trim();
+      }
+      //loadDependencies();
+    });
   });
 });
 
@@ -241,7 +248,7 @@ var loadDependencies = function () {
   }
 
   if (0 < npm_packages.length) {
-    commands.unshift('npm install ' + npm_packages.join(' '));
+    commands.unshift(npm + ' install ' + npm_packages.join(' '));
   }
 
   if (0 < commands.length) {
