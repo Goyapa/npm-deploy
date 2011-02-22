@@ -44,7 +44,7 @@ var readJson = function (file, callback) {
     } catch (error) {
       callback(error);
     }
-  }) 
+  });
 };
 
 /**
@@ -140,10 +140,10 @@ var _executeCommands = function (commands) {
 
 // Setup paths
 var root = cwd = process.cwd(),
-    deploy_obj, package_json;
+    deploy_obj, package_json, deploy_config;
 
 // Is the deploy json file specified?
-if (deploy_obj = process.argv[process.argv.indexOf(__filename) + 1]) {
+if (deploy_obj = process.argv[2]) {
   root = path.dirname(deploy_obj);
 } else {
   deploy_obj = 'deploy.js';
@@ -164,7 +164,9 @@ package_json = root + '/package.json';
 
 // Load the deploy script.
 try {
-  deploy_obj = require(deploy_obj);
+  deploy_obj    = require(deploy_obj);
+  deploy_config = deploy_obj.config || deploy_config;
+  deploy_obj    = deploy_obj.script;
 } catch (error) {
   deploy_obj = {};
 }
@@ -189,7 +191,7 @@ readJson(package_json, function (error, json) {
       }
 
       deploy_obj[name] = {
-        type:    "npm"
+        type: "npm"
       };
     }
   }

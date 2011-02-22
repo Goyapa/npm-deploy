@@ -1,4 +1,8 @@
-module.exports = {
+exports.options = {
+
+};
+
+exports.script = {
   "id3": {
     "type": "npm"
   },
