@@ -1,13 +1,13 @@
 {
   "name": "npm-deploy",
   "description": "Simple cli utility for installing dependenies and running deployment scripts.",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "author": "Tim Smart",
   "repository": {
     "type": "git",
     "url": "http://github.com/Tim-Smart/npm-deploy.git"
   },
-  "engine": [ "node >=0.3.6" ],
+  "engine": [ "node >=0.4.1" ],
   "bin": {
     "npm-deploy": "./bin/npm-deploy"
   }

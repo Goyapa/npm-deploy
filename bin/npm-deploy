@@ -52,9 +52,7 @@ var readJson = function (file, callback) {
  *
  * @param {Object} item: The deploy item entry.
  */
-var installGitRepo = function (name, item) {
-  var commands = [];
-
+var installGitRepo = function (commands, name, item) {
   // Make sure the deploy directory is there.
   commands.push('mkdir -p "' + DEPLOY_DIR + '"');
 
@@ -84,11 +82,8 @@ var installGitRepo = function (name, item) {
     commands.push.apply(commands, item.commands);
   }
 
-  // `npm link ./` it.
-  commands.push(npm + ' link ./');
-
-  // Do it.
-  executeCommands(commands);
+  // `npm install ./` it.
+  commands.push(npm + ' install ./');
 };
 
 var commands_queue   = [],
@@ -116,7 +111,7 @@ var executeCommands = function (commands) {
 var _executeCommands = function (commands) {
   commands = commands.slice();
 
-  (function next () {
+  (function next (error, data) {
     var command = commands.shift();
 
     if (!command) {
@@ -128,12 +123,12 @@ var _executeCommands = function (commands) {
 
     if (typeof command === 'function') {
       console.log('Executing function...');
-      return command(next);
+      return command(next, error, data);
     }
 
     console.log('Running `' + command + '`.');
     exec(command, function (error, data) {
-      next()
+      next(error, data)
     });
   })();
 };
@@ -215,7 +210,6 @@ var loadDependencies = function () {
   }
 
   var commands     = [],
-      npm_packages = [],
       keys         = Object.keys(deploy_obj),
       name, item, type;
 
@@ -234,27 +228,29 @@ var loadDependencies = function () {
     if (!type) continue;
 
     switch (type) {
-    case 'npm':
-      npm_packages.push(name);
-      break;
+      case 'npm':
+        if (item.version) {
+          commands.push(npm + ' install "' + name + '"@"' + item.version + '"');
+        } else {
+          commands.push(npm + ' install "' + name + '"');
+        }
+        break;
 
-    case 'git':
-      if (item.path) {
-        if (!item.checkout) item.checkout = 'master';
-        installGitRepo(name, item);
-      }
-      break;
+      case 'git':
+        if (item.path) {
+          if (!item.checkout) {
+            item.checkout = 'master';
+          }
+          installGitRepo(commands, name, item);
+        }
+        break;
 
-    case 'command':
-      if (item.commands) {
-        commands.push.apply(commands, item.commands);
-      }
-      break;
+      case 'command':
+        if (item.commands) {
+          commands.push.apply(commands, item.commands);
+        }
+        break;
     }
-  }
-
-  if (0 < npm_packages.length) {
-    commands.unshift(npm + ' install ' + npm_packages.join(' '));
   }
 
   if (0 < commands.length) {
