@@ -48,6 +48,19 @@ var readJson = function (file, callback) {
 };
 
 /**
+ * Command that changes to root.
+ */
+var chdirRoot = function (done) {
+  if (root !== process.cwd()) {
+    process.chdir(root);
+  }
+
+  if (done) {
+    done();
+  }
+};
+
+/**
  * Setup, checkout and install a repo.
  *
  * @param {Object} item: The deploy item entry.
@@ -116,7 +129,7 @@ var _executeCommands = function (commands) {
 
     if (!command) {
       // At the end. Clean-up.
-      if (root !== process.cwd()) process.chdir(root);
+      chdirRoot();
       commands_working = false;
       return executeCommands();
     }
@@ -138,15 +151,18 @@ var root = cwd = process.cwd(),
     deploy_obj, package_json, deploy_config;
 
 // Is the deploy json file specified?
-if (deploy_obj = process.argv[2]) {
-  root = path.dirname(deploy_obj);
-} else {
+if (!(deploy_obj = process.argv[2])) {
   deploy_obj = 'deploy.js';
 }
 
-// Make sure we have an absolute path.
 deploy_obj = path.resolve(deploy_obj);
-root = path.resolve(root);
+var stat = fs.statSync(deploy_obj);
+
+// Make sure we have an absolute path.
+if (stat.isDirectory()) {
+  deploy_obj = path.join(deploy_obj, 'deploy.js');
+}
+root = path.resolve(path.dirname(deploy_obj));
 
 // Change directories if we need to.
 if (cwd !== root) {
@@ -181,12 +197,9 @@ readJson(package_json, function (error, json) {
       name    = keys[i];
       version = json.dependencies[name];
 
-      if (version) {
-        name = name + '@"' + version + '"';
-      }
-
       deploy_obj[name] = {
-        type: "npm"
+        type: "npm",
+        version: version
       };
     }
   }
@@ -223,17 +236,23 @@ var loadDependencies = function () {
   for (var i = 0, il = keys.length; i < il; i++) {
     name = keys[i];
     item = deploy_obj[name];
-    type = item.type;
+
+    if ('function' === typeof item) {
+      type = 'function';
+    } else {
+      type = item.type;
+    }
 
     if (!type) continue;
 
     switch (type) {
       case 'npm':
         if (item.version) {
-          commands.push(npm + ' install "' + name + '"@"' + item.version + '"');
+          commands.push(npm + ' install ' + name + '@"' + item.version + '"');
         } else {
-          commands.push(npm + ' install "' + name + '"');
+          commands.push(npm + ' install ' + name);
         }
+        commands.push(chdirRoot);
         break;
 
       case 'git':
@@ -242,16 +261,25 @@ var loadDependencies = function () {
             item.checkout = 'master';
           }
           installGitRepo(commands, name, item);
+          commands.push(chdirRoot);
         }
         break;
 
       case 'command':
         if (item.commands) {
           commands.push.apply(commands, item.commands);
+          commands.push(chdirRoot);
         }
+        break;
+
+      case 'function':
+        commands.push(item);
+        commands.push(chdirRoot);
         break;
     }
   }
+
+  console.log(commands);
 
   if (0 < commands.length) {
     executeCommands(commands);
