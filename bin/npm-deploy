@@ -133,7 +133,11 @@ var _executeCommands = function (commands) {
     }
 
     if (typeof command === 'function') {
-      console.log('Executing function...');
+      if (chdirRoot === command) {
+        console.log('Reseting paths...');
+      } else {
+        console.log('Executing function...');
+      }
       return command(next, error, data);
     }
 
