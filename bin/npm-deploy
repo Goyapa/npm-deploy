@@ -32,9 +32,7 @@ var DEPLOY_DIR = '.deploy',
 /**
  * Read JSON from a file and parse it.
  *
- * @param {String} file: The file path
- * @param {Function} callback: The callback function.
- */
+ * @param {String} file: The file path * @param {Function} callback: The callback function.  */
 var readJson = function (file, callback) {
   fs.readFile(file, function (error, data) {
     if (error) return callback(error);
@@ -278,8 +276,6 @@ var loadDependencies = function () {
         break;
     }
   }
-
-  console.log(commands);
 
   if (0 < commands.length) {
     executeCommands(commands);
