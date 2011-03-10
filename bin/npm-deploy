@@ -158,10 +158,12 @@ if (!(deploy_obj = process.argv[2])) {
 }
 
 deploy_obj = path.resolve(deploy_obj);
-var stat = fs.statSync(deploy_obj);
+try {
+  var stat = fs.statSync(deploy_obj);
+} catch (error) {}
 
 // Make sure we have an absolute path.
-if (stat.isDirectory()) {
+if (stat && stat.isDirectory()) {
   deploy_obj = path.join(deploy_obj, 'deploy.js');
 }
 root = path.resolve(path.dirname(deploy_obj));
