@@ -235,6 +235,9 @@ var loadDependencies = function () {
     return console.log('Nothing to do.');
   }
 
+  // Create a node_modules folder first.
+  commands.push('mkdir -p node_modules');
+
   // Do installation of dependencies.
   // Stack commands onto an array to process sequentially.
   for (var i = 0, il = keys.length; i < il; i++) {
