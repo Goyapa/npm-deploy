@@ -22,9 +22,10 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
-var fs   = require('fs'),
-    path = require('path'),
-    exec = require('child_process').exec;
+var fs     = require('fs'),
+    path   = require('path'),
+    crypto = require('crypto'),
+    exec   = require('child_process').exec;
 
 var DEPLOY_DIR = '.deploy',
     npm        = 'npm';
@@ -64,6 +65,8 @@ var chdirRoot = function (done) {
  * @param {Object} item: The deploy item entry.
  */
 var installGitRepo = function (commands, name, item) {
+  var dir;
+
   // Make sure the deploy directory is there.
   commands.push('mkdir -p "' + DEPLOY_DIR + '"');
 
@@ -73,12 +76,15 @@ var installGitRepo = function (commands, name, item) {
     done();
   });
 
+  // Get the sha1 for the clone dir
+  dir = crypto.createHash('sha1').update(item.path).digest('hex');
+
   // git clone the path
-  commands.push('git clone "' + item.path + '" "' + name + '"');
+  commands.push('git clone "' + item.path + '" "' + dir + '"');
 
   // chdir into repo
   commands.push(function (done) {
-    process.chdir(name);
+    process.chdir(dir);
     done();
   });
 
@@ -93,8 +99,10 @@ var installGitRepo = function (commands, name, item) {
     commands.push.apply(commands, item.commands);
   }
 
+  commands.push(chdirRoot);
+
   // `npm install ./` it.
-  commands.push(npm + ' install ./');
+  commands.push(npm + ' install "' + path.join('.deploy', dir, item.cd) + '"');
 };
 
 var commands_queue   = [],
