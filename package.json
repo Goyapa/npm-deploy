@@ -1,7 +1,7 @@
 {
   "name": "npm-deploy",
   "description": "Simple cli utility for installing dependenies and running deployment scripts.",
-  "version": "0.1.8",
+  "version": "0.1.9",
   "author": "Tim Smart",
   "repository": {
     "type": "git",

@@ -270,6 +270,11 @@ var loadDependencies = function () {
         commands.push(chdirRoot);
         break;
 
+      case 'path':
+        commands.push(npm + ' install "' + item.path + '"');
+        commands.push(chdirRoot);
+        break;
+
       case 'git':
         if (item.path) {
           if (!item.checkout) {
